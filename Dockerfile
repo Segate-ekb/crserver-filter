@@ -1,3 +1,3 @@
 FROM openresty/openresty
 
-LABEL maintainer="Dima Ovcharenko <d.ovcharenko90@gmail.com>"
+LABEL maintainer="Egor Ivanov <e.ivanov@1cdevelopers.ru>"
