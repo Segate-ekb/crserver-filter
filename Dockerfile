@@ -11,4 +11,8 @@ RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-http
 #RUN /usr/local/openresty/luajit/bin/luarocks install telegram-bot-lua 
 RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
 
+COPY ./data/nginx /etc/nginx/lua
+COPY ./nginx/lualib /usr/local/openresty/lualib/v8/
+COPY ./conf.d/crserver-filter.conf /etc/nginx/conf.d/crserver-filter.conf
+
 LABEL maintainer="Ivanov Egor"

@@ -7,7 +7,6 @@ local function create_list(list)
 end
 
 function _M.check_comment(pattern, errorMessage)
-
     ngx.req.read_body()
 
     local req = ngx.req.get_body_data()
@@ -16,7 +15,9 @@ function _M.check_comment(pattern, errorMessage)
     end
 
     local commentNode = [[<crs:comment>(.*)</crs:comment>]]
+    local commentUserNode = [[<crs:auth user=(.*)password=]]
     local commitMessage
+    local repo_user = ""
     local rex
     local captures
     if req:match([[name="DevDepot_commitObjects"]]) ~= nil then
@@ -31,11 +32,26 @@ function _M.check_comment(pattern, errorMessage)
         return
     end
 
+    -- Найдем пользователя хранилища
+
+    local function isempty(s)
+        return s == nil or s == ''
+    end
+
+    repo_user = req:match(commentUserNode)  -- пользователь хранилища
+    if isempty(repo_user) then
+        repo_user = "untitled"
+    end
+
+    repo_user = repo_user:gsub('"', '')
+    repo_user = repo_user:gsub(' ', '')
+
     -- проверка на пустой комментарий
     if commitMessage == nil then
         ngx.status = ngx.HTTP_BAD_REQUEST
         ngx.header.content_type = 'text/plain; charset=utf-8'
-        ngx.say("ОТСУТСТВУЕТ КОММЕНТАРИЙ")
+        ngx.say("YOU SHALL NOT PASS!!!")
+        ngx.say("Отсутствует комментарий для помещения в хранилище.")
         ngx.exit(ngx.HTTP_BAD_REQUEST)
     end
 
@@ -51,30 +67,22 @@ function _M.check_comment(pattern, errorMessage)
         end
     end
 
-    -- проверка на соответствие статуса задачи в Jira
-    -- Паттерн для номера задачи
-    local task_key_pattern = [[BUH-\d{1,8}\b]]
-    -- Список валидных статусов jira
-    local validStatusesArray = {"MFG_IN PROGRESS", "MFG_Test", "MFG_Need To Correct"}
-    local validStatuses = create_list(validStatusesArray) 
+    -- проверка на наличие пользователя
 
-    local task = rex.match(captures, task_key_pattern) 
-    local jira_check = require("v8.jira-check")
-    local status = jira_check.get_task_status(task)
-   
-    if not validStatuses[status] then
-        ngx.log(ngx.DEBUG, "Status <".. status.. "> not found in <".. table.concat(validStatusesArray, ", ")..">")
+    rex = require('rex_pcre')
+    captures = rex.match(commitMessage, [[@zetasoft.ru]])
+    if (repo_user == "stage" or repo_user == "release") and captures == nil then
+        errorMessage = 
+[[
+Не указан пользователь хранилища в комментарии при помещении из stage или release
+Добавьте в комментарий свой логин от хранилища в формате @zetasoft.ru
+]]
         ngx.status = ngx.HTTP_BAD_REQUEST
         ngx.header.content_type = 'text/plain; charset=utf-8'
-        ngx.say("Задача <"..task.."> не прошла проверку в Jira!")
-        ngx.say("Помещать в хранилище можно только в статусах:")
-        for _,v in pairs(validStatusesArray) do
-            ngx.say("- ".. v) 
-        end
+        ngx.say("YOU SHALL NOT PASS!!!")
+        ngx.say(errorMessage)
         ngx.exit(ngx.HTTP_BAD_REQUEST)
     end
-    ngx.log(ngx.DEBUG, "Great! Status <".. status.. "> found in <".. table.concat(validStatusesArray, ", ")..">") 
-    
 end
 
 return _M
